@@ -24,11 +24,12 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 public class Main {
+    private static long start;
     public static CloseableHttpAsyncClient client;
 
     public static void main(String[] args) throws Exception {
-        final IOReactorConfig ioReactorConfig = IOReactorConfig.custom()
-                .setSoTimeout(Timeout.ofMilliseconds(250))
+        IOReactorConfig ioReactorConfig = IOReactorConfig.custom()
+                .setSoTimeout(Timeout.ofMilliseconds(100))
                 .setSelectInterval(TimeValue.ofMilliseconds(50))
                 .build();
 
@@ -36,19 +37,26 @@ public class Main {
                 .setPoolConcurrencyPolicy(PoolConcurrencyPolicy.LAX)
                 .setMaxConnPerRoute(6).build();
 
+        RequestConfig config = RequestConfig.copy(RequestConfig.DEFAULT)
+                .setConnectTimeout(500, TimeUnit.MILLISECONDS)
+                .setConnectionRequestTimeout(500, TimeUnit.MILLISECONDS)
+                .setResponseTimeout(500, TimeUnit.MILLISECONDS)
+                .build();
+
         Main.client = HttpAsyncClients.custom()
                 .setIOReactorConfig(ioReactorConfig)
                 .setConnectionManager(build)
+                .setDefaultRequestConfig(config)
                 .disableAutomaticRetries()
                 .build();
 
         client.start();
 
-        int sec = 100;
+        int sec = 250;
         start("http://127.0.0.1:8080/greeting", sec);
-        Thread.sleep(1000);
+//        Thread.sleep(1000);
+/*        start("http://127.0.0.1:8080/greeting", sec);
         start("http://127.0.0.1:8080/greeting", sec);
-       /* start("http://127.0.0.1:8080/greeting", sec);
         start("http://127.0.0.1:8080/greeting", sec);
         start("http://127.0.0.1:8080/greeting", sec);
         start("http://127.0.0.1:8080/greeting", sec);
@@ -64,7 +72,7 @@ public class Main {
     }
 
     public static void start(String url, int milli) throws Exception {
-        long now = System.currentTimeMillis();
+        start = System.currentTimeMillis();
         SimpleHttpRequest httpRequest = SimpleHttpRequest.create(Method.GET.name(), url);
         final SimpleHttpRequest request = SimpleRequestBuilder.copy(httpRequest)
                 .addParameter("name", "124")
@@ -72,7 +80,8 @@ public class Main {
         RequestConfig config = RequestConfig.copy(RequestConfig.DEFAULT)
                 .setConnectTimeout(150, TimeUnit.MILLISECONDS)
                 .setConnectionRequestTimeout(200, TimeUnit.MILLISECONDS)
-                .setResponseTimeout(milli, TimeUnit.MILLISECONDS).build();
+                .setResponseTimeout(milli, TimeUnit.MILLISECONDS)
+                .build();
         request.setConfig(config);
 
         final Future<SimpleHttpResponse> future = client.execute(
@@ -88,6 +97,8 @@ public class Main {
 
                     @Override
                     public void failed(final Exception ex) {
+                        long end = System.currentTimeMillis() - start;
+                        System.out.println("fail" + end);
                         System.out.println(request + "->" + ex);
                     }
 
@@ -99,9 +110,12 @@ public class Main {
                 });
 /*        try {
             future.get();
-        } catch (Exception e){
+            long end = System.currentTimeMillis() - start;
+            System.out.println("get" + end);
+        } catch (Exception e) {
+            long end = System.currentTimeMillis() - start;
+            System.out.println("get e" + end);
             System.out.println(e);
         }*/
-        System.out.println("send");
     }
 }
